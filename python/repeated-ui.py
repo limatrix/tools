@@ -10,7 +10,6 @@ global global_copy_entry
 global global_copy_button
 global global_text
 global global_path_list
-global global_indicate_label
 global global_current_label
 global global_md5_list
 global global_copy_directory
@@ -127,13 +126,14 @@ def print_to_file(directory, fname, md5hex):
 
 def generate_validate(directory):
     global global_file_ds
-    print(directory)
+    count = 0
     global_file_ds = open(directory + "/hash.db", "w+")
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f == "hash.db":
                 continue
             fname = os.path.join(root, f)
+            count = count + 1
             print_cur_file(directory, fname)
             md5hex = calc_md5(fname)
             print_to_file(directory, fname, md5hex)
@@ -141,7 +141,11 @@ def generate_validate(directory):
     pass
     global_file_ds.close()
     global_file_ds = None
-    print_to_text("生成文件:" + directory + "/hash.db\n")
+    print_str = "目录:     " + directory + "\n" \
+                "文件总数: " + str(count) + "\n" \
+                "校验文件: " + "hash.db\n"
+    print_to_text(print_str)
+
 def get_relavte_path(directory, fname):
     dirlen = len(directory) + 1
     name   = fname[dirlen:]
@@ -157,7 +161,6 @@ def proc_validate(directory):
         dictionary[lst[0]] = lst[1]
         fset.add(lst[0])
 
-    print(dictionary)
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f == "hash.db":
@@ -177,12 +180,12 @@ def proc_validate(directory):
     # 文件夹里有, hash.db里没有的
     temp2 = list(rset.difference(fset))
 
-    return_str = "文件夹里丢失的文件:\n"
+    return_str = "文件夹里丢失的文件:\n\n"
     for l in temp1:
-        return_str = return_str + dictionary[l] + "\n"
-    return_str = return_str + "文件夹里新增的文件:\n"
+        return_str = return_str + "  " + dictionary[l]
+    return_str = return_str + "\n文件夹里新增的文件:\n\n"
     for l in rlist:
-        return_str = return_str + get_relavte_path(directory, l)+ "\n"
+        return_str = return_str + "  " + get_relavte_path(directory, l) + "\n"
 
     print_to_text(return_str)
 
@@ -210,13 +213,12 @@ def validate():
 
 def print_start_label():
     """显示开始执行"""
-    global global_indicate_label
-    global_indicate_label['text'] = "执行中...."
+    # global_current_label['text'] = "执行中...."
 
 def print_end_label():
     """显示执行完成"""
-    global global_indicate_label
-    global_indicate_label['text'] = "执行完成"
+    global global_current_label
+    global_current_label['text'] = "执行完成"
 
 def empty_text():
     """清空文本显示"""
@@ -329,9 +331,6 @@ global_copy_button = Button(middleFrame, text = "选择", command = lambda : sel
 btnRun = Button(middleFrame, text = "执行", borderwidth = 0, fg = "red", command = findRepeated)
 btnRun.grid(row = currow, column = 5, padx = 10, sticky = W)
 
-global_indicate_label = Label(middleFrame)
-global_indicate_label.grid(row = currow, column = 6)
-
 #
 currow = currow + 1
 Label(middleFrame, text = "完整性校验").grid(row = currow, column = 0, padx = 7, sticky = W)
@@ -344,9 +343,6 @@ Radiobutton(middleFrame, text = "检查完整性",  variable = validate_radio_va
 btnRun = Button(middleFrame, text = "执行", borderwidth = 0, fg = "red", command = validate)
 btnRun.grid(row = currow, column = 5, padx = 10, sticky = W)
 
-global_indicate_label = Label(middleFrame)
-global_indicate_label.grid(row = currow, column = 6)
-
 
 
 ###
@@ -356,7 +352,7 @@ global_indicate_label.grid(row = currow, column = 6)
 buttomFrame = Frame(root, height = 200, width = 796)
 buttomFrame.grid(row = 2, columnspan = 6, sticky = W)
 global_current_label = Label(buttomFrame)
-global_current_label.grid(row = 0, column = 0, columnspan = 6, sticky = W, padx = 10)
+global_current_label.grid(row = 0, column = 0, columnspan = 6, sticky = W, padx = 7)
 
 
 ###
