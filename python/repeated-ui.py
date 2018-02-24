@@ -15,10 +15,14 @@ global global_current_label
 global global_md5_list
 global global_copy_directory
 global global_del_indicate
+global global_file_ds
+global global_validate_indicate
 
 global_path_list = []
 global_md5_list = []
 global_del_indicate = False
+global_file_ds = None
+global_validate_indicate = None
 
 def print_cur_file(directory, file):
     """显示当前处理的文件"""
@@ -92,6 +96,11 @@ def selectPath(p):
     _path = askdirectory()
     global_path_list[p].set(_path)
 
+def empty_all_path():
+    global global_path_list
+    for l in global_path_list:
+        l.set("")
+    pass
 def targetDialogOpt(opt):
     global global_copy_entry, global_copy_button, global_del_indicate, \
     global_copy_directory, global_del_indicate
@@ -105,6 +114,99 @@ def targetDialogOpt(opt):
         global_copy_entry.grid_remove() 
         global_copy_button.grid_remove()
         global_del_indicate = True
+
+def validationOpt(opt):
+    global global_validate_indicate
+    global_validate_indicate = opt
+
+def print_to_file(directory, fname, md5hex):
+    global global_file_ds
+    dirlen = len(directory) + 1
+    name   = fname[dirlen:]
+    global_file_ds.write(md5hex + "," + name + "\n")
+
+def generate_validate(directory):
+    global global_file_ds
+    print(directory)
+    global_file_ds = open(directory + "/hash.db", "w+")
+    for root, dirs, files in os.walk(directory):
+        for f in files:
+            if f == "hash.db":
+                continue
+            fname = os.path.join(root, f)
+            print_cur_file(directory, fname)
+            md5hex = calc_md5(fname)
+            print_to_file(directory, fname, md5hex)
+        pass
+    pass
+    global_file_ds.close()
+    global_file_ds = None
+    print_to_text("生成文件:" + directory + "/hash.db\n")
+def get_relavte_path(directory, fname):
+    dirlen = len(directory) + 1
+    name   = fname[dirlen:]
+    return name
+
+def proc_validate(directory):
+    dictionary = {}
+    rlist = []
+    fset = set()
+    rset = set()
+    for line in open(directory + "/hash.db"):
+        lst = line.split(",")
+        dictionary[lst[0]] = lst[1]
+        fset.add(lst[0])
+
+    print(dictionary)
+    for root, dirs, files in os.walk(directory):
+        for f in files:
+            if f == "hash.db":
+                continue
+            fname = os.path.join(root, f)
+            print_cur_file(directory, fname)
+            md5hex = calc_md5(fname)
+            rset.add(md5hex)
+            if md5hex not in dictionary:
+                rlist.append(fname)
+        pass
+    pass
+
+    # hash.db里有, 文件夹里没有的
+    temp1 = list(fset.difference(rset))
+
+    # 文件夹里有, hash.db里没有的
+    temp2 = list(rset.difference(fset))
+
+    return_str = "文件夹里丢失的文件:\n"
+    for l in temp1:
+        return_str = return_str + dictionary[l] + "\n"
+    return_str = return_str + "文件夹里新增的文件:\n"
+    for l in rlist:
+        return_str = return_str + get_relavte_path(directory, l)+ "\n"
+
+    print_to_text(return_str)
+
+def validate():
+    global global_validate_indicate
+    print_start_label()
+    empty_text()
+    
+    if global_validate_indicate == 1:
+        for i in range(4):
+            path = global_path_list[i].get()
+            if path:
+                generate_validate(path)
+            pass
+        pass
+    elif global_validate_indicate == 2:
+        for i in range(4):
+            path = global_path_list[i].get()
+            if path:
+                proc_validate(path)
+            pass
+        pass
+    print_end_label()
+    empty_all_path()
 
 def print_start_label():
     """显示开始执行"""
@@ -139,6 +241,11 @@ def empty_md5_list():
     global global_md5_list
     global_md5_list.clear()
 
+def empty_path_list():
+    """清空存放path的列表"""
+    global global_path_list
+    global_path_list.clear()
+
 def findRepeated():
     """查找重复文件的总入口"""
     global global_path_list
@@ -153,17 +260,20 @@ def findRepeated():
             pass
         pass
         print_end_label()
+        empty_all_path()
     pass
+
 
 root = Tk()
 root.title("重复文件管理")
 root.geometry('800x600+250+80')
 root.maxsize(800, 600)
 root.minsize(800, 600)
-for i in range(5):
+for i in range(6):
     global_path_list.append(StringVar())
 
-radioVar = IntVar()
+repeat_radio_var = IntVar()
+validate_radio_var = IntVar()
 ###
 ### 目录选择FRAME
 ### 
@@ -206,21 +316,38 @@ middleFrame = Frame(root, height = 200, width = 796)
 middleFrame.grid(row = 1, columnspan = 6, sticky = W)
 
 currow = 0
-Label(middleFrame, text = "重复文件的操作方式").grid(row = currow, column = 0, padx = 7)
-# currow = currow + 1
-Radiobutton(middleFrame, text = "删除",  variable = radioVar, value = 1, command = lambda : targetDialogOpt(1)) \
-.grid(row = currow, column = 1)
-Radiobutton(middleFrame, text = "拷贝",  variable = radioVar, value = 2, command = lambda : targetDialogOpt(2)) \
-.grid(row = currow, column = 2)
+Label(middleFrame, text = "重复文件的操作方式").grid(row = currow, column = 0, padx = 7, sticky = W)
+
+Radiobutton(middleFrame, text = "删除",  variable = repeat_radio_var, value = 1, command = lambda : targetDialogOpt(1)) \
+.grid(row = currow, column = 1, sticky = W)
+Radiobutton(middleFrame, text = "拷贝",  variable = repeat_radio_var, value = 2, command = lambda : targetDialogOpt(2)) \
+.grid(row = currow, column = 2, sticky = W)
 
 global_copy_entry = Entry(middleFrame, textvariable = global_path_list[4], width = 40)
 global_copy_button = Button(middleFrame, text = "选择", command = lambda : selectPath(4), width = 6, borderwidth = 0, fg = "blue")
 
 btnRun = Button(middleFrame, text = "执行", borderwidth = 0, fg = "red", command = findRepeated)
-btnRun.grid(row = currow, column = 5, padx = 10)
+btnRun.grid(row = currow, column = 5, padx = 10, sticky = W)
 
 global_indicate_label = Label(middleFrame)
 global_indicate_label.grid(row = currow, column = 6)
+
+#
+currow = currow + 1
+Label(middleFrame, text = "完整性校验").grid(row = currow, column = 0, padx = 7, sticky = W)
+
+Radiobutton(middleFrame, text = "生成校验文件",  variable = validate_radio_var, value = 1, command = lambda : validationOpt(1)) \
+.grid(row = currow, column = 1, sticky = W)
+Radiobutton(middleFrame, text = "检查完整性",  variable = validate_radio_var, value = 2, command = lambda : validationOpt(2)) \
+.grid(row = currow, column = 2, sticky = W)
+
+btnRun = Button(middleFrame, text = "执行", borderwidth = 0, fg = "red", command = validate)
+btnRun.grid(row = currow, column = 5, padx = 10, sticky = W)
+
+global_indicate_label = Label(middleFrame)
+global_indicate_label.grid(row = currow, column = 6)
+
+
 
 ###
 ### 显示当前处理的文件的FRAME
