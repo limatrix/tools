@@ -16,6 +16,7 @@ global global_copy_directory
 global global_del_indicate
 global global_file_ds
 global global_validate_indicate
+global global_current_directory
 
 global_path_list = []
 global_md5_list = []
@@ -23,7 +24,7 @@ global_del_indicate = False
 global_file_ds = None
 global_validate_indicate = None
 
-def print_cur_file(directory, file):
+def print_to_current_label(directory, file):
     """显示当前处理的文件"""
     global global_current_label
     dirlen = len(directory) + 1
@@ -35,9 +36,47 @@ def print_cur_file(directory, file):
 def print_to_text(s):
     """显示信息到text"""
     global global_text
-    global_text.insert(END, s)
+    global_text.insert(0.0, s)
     time.sleep(0.02)
     global_text.update()
+
+def print_to_file(directory, fname, md5hex):
+    """将信息写到文件"""
+    global global_file_ds
+    dirlen = len(directory) + 1
+    name   = fname[dirlen:]
+    global_file_ds.write(md5hex + "," + name + "\n")
+
+def get_relavte_path(fname):
+    """截取绝对路径为相对路径"""
+    global global_current_directory
+    dirlen = len(global_current_directory) + 1
+    name   = fname[dirlen:]
+    return name
+
+def print_repeated_summary(sum_count, opt_count):
+    """重复文件扫描完成后打印信息"""
+    global global_del_indicate
+    temp_str = ""
+    return_str = "共扫描文件: %d个\n" % sum_count
+
+    if global_del_indicate is True:
+        temp_str = "共删除文件: %d个\n" % opt_count
+    else:
+        temp_str = "共拷贝文件: %d个\n" % opt_count
+    return_str = return_str +  temp_str
+    print_to_text(return_str)
+
+def remove_empty_directory(directory):
+    for root, dirs, files in os.walk(directory):
+        for name in dirs:
+            workpath = os.path.join(root, name)
+            if not os.listdir(workpath):
+                print("del path %s\n" % workpath)
+                os.removedirs(workpath)
+            pass
+        pass
+    pass
 
 def calc_md5(fname):
     md5 = hashlib.md5()
@@ -69,26 +108,35 @@ def repeated_opts(f, fname):
                 f = '%s_%d%s' % (name, count, ext)
             target_name = os.path.join(global_copy_directory, f)
         else:
-            print_to_text('move file %s to %s as %s\n' % (fname, global_copy_directory, f))
+            print_to_text('move file %s to %s as %s\n' % (get_relavte_path(fname), global_copy_directory, f))
             shutil.move(fname, target_name)
     else:
-        print_to_text('delete file %s\n' % fname)
+        print_to_text('deleting %s\n' % get_relavte_path(fname))
         os.remove(fname)
+    pass
 
 def find_repeated(directory):
     global global_md5_list
+    global global_current_directory
+    global_current_directory = directory
+
+    sum_count = 0
+    opt_count = 0
+
     for root, dirs, files in os.walk(directory):
         for f in files:
             fname = os.path.join(root, f)
-            print_cur_file(directory, fname)
+            print_to_current_label(directory, fname)
             md5hex = calc_md5(fname)
+            sum_count = sum_count + 1
             if md5hex not in global_md5_list:
                 global_md5_list.append(md5hex)
             else:
                 repeated_opts(f, fname)
+                opt_count = opt_count + 1
             pass
         pass
-    pass
+    return (sum_count, opt_count)
 
 def selectPath(p):
     global global_path_list
@@ -118,12 +166,6 @@ def validationOpt(opt):
     global global_validate_indicate
     global_validate_indicate = opt
 
-def print_to_file(directory, fname, md5hex):
-    global global_file_ds
-    dirlen = len(directory) + 1
-    name   = fname[dirlen:]
-    global_file_ds.write(md5hex + "," + name + "\n")
-
 def generate_validate(directory):
     global global_file_ds
     count = 0
@@ -134,7 +176,7 @@ def generate_validate(directory):
                 continue
             fname = os.path.join(root, f)
             count = count + 1
-            print_cur_file(directory, fname)
+            print_to_current_label(directory, fname)
             md5hex = calc_md5(fname)
             print_to_file(directory, fname, md5hex)
         pass
@@ -145,11 +187,6 @@ def generate_validate(directory):
                 "文件总数: " + str(count) + "\n" \
                 "校验文件: " + "hash.db\n"
     print_to_text(print_str)
-
-def get_relavte_path(directory, fname):
-    dirlen = len(directory) + 1
-    name   = fname[dirlen:]
-    return name
 
 def proc_validate(directory):
     dictionary = {}
@@ -166,7 +203,7 @@ def proc_validate(directory):
             if f == "hash.db":
                 continue
             fname = os.path.join(root, f)
-            print_cur_file(directory, fname)
+            print_to_current_label(directory, fname)
             md5hex = calc_md5(fname)
             rset.add(md5hex)
             if md5hex not in dictionary:
@@ -185,7 +222,7 @@ def proc_validate(directory):
         return_str = return_str + "  " + dictionary[l]
     return_str = return_str + "\n文件夹里新增的文件:\n\n"
     for l in rlist:
-        return_str = return_str + "  " + get_relavte_path(directory, l) + "\n"
+        return_str = return_str + "  " + get_relavte_path(l) + "\n"
 
     print_to_text(return_str)
 
@@ -251,6 +288,8 @@ def empty_path_list():
 def findRepeated():
     """查找重复文件的总入口"""
     global global_path_list
+    sum_count = 0
+    opt_count = 0
     if True == init_repeated_copy_dir():
         print_start_label()
         empty_text()
@@ -258,12 +297,16 @@ def findRepeated():
         for i in range(4):
             path = global_path_list[i].get()
             if path:
-                find_repeated(path)
+                (a,b) = find_repeated(path)
+                sum_count = sum_count + a
+                opt_count = opt_count + b
+                remove_empty_directory(path)
             pass
         pass
         print_end_label()
         empty_all_path()
     pass
+    print_repeated_summary(sum_count, opt_count)
 
 
 root = Tk()
@@ -284,7 +327,8 @@ topFrame.grid(row = 0, columnspan = 6, sticky = W)
 
 ### 文字说明
 currow = 0
-Label(topFrame, text = "选择将要扫描的文件夹, 最多支持4个, 当选择删除重复文件时, 排在后面的文件将被删除").grid(row = currow, column = 0, columnspan = 6, sticky = W, padx = 7)
+Label(topFrame, text = "选择将要扫描的文件夹, 最多支持4个文件夹. 按文件夹顺序扫描, 如果选择删除重复文件, \
+排在后面的文件将被删除.").grid(row = currow, column = 0, columnspan = 6, sticky = W, padx = 7, pady = 5)
 
 ### 文件选择1
 currow = currow + 1
