@@ -6,8 +6,11 @@ import time
 from tkinter import *
 from tkinter.filedialog import askdirectory
 from tkinter.messagebox import showinfo
+from tkinter.filedialog import askopenfilename
 global global_copy_entry
 global global_copy_button
+global global_hash_entry
+global global_hash_button
 global global_text
 global global_path_list
 global global_current_label
@@ -130,7 +133,9 @@ def find_repeated(directory):
             md5hex = calc_md5(fname)
             sum_count = sum_count + 1
             if md5hex not in global_md5_list:
-                global_md5_list.append(md5hex)
+                if check_button_var.get() != 1:
+                    global_md5_list.append(md5hex)
+                pass
             else:
                 repeated_opts(f, fname)
                 opt_count = opt_count + 1
@@ -147,6 +152,7 @@ def empty_all_path():
     global global_path_list
     for l in global_path_list:
         l.set("")
+
     pass
 def targetDialogOpt(opt):
     global global_copy_entry, global_copy_button, global_del_indicate, \
@@ -285,15 +291,27 @@ def empty_path_list():
     global global_path_list
     global_path_list.clear()
 
+def load_hash_file(file):
+    global global_md5_list
+    for line in open(file):
+        lst = line.split(",")
+        global_md5_list.append(lst[0])
+    pass
+
 def findRepeated():
     """查找重复文件的总入口"""
-    global global_path_list
+    global global_path_list, global_md5_list
     sum_count = 0
     opt_count = 0
     if True == init_repeated_copy_dir():
         print_start_label()
         empty_text()
         empty_md5_list()
+
+        if check_button_var.get() == 1:
+            hash_file = global_hash_file.get()
+            load_hash_file(hash_file)
+
         for i in range(4):
             path = global_path_list[i].get()
             if path:
@@ -308,6 +326,19 @@ def findRepeated():
     pass
     print_repeated_summary(sum_count, opt_count)
 
+def check_button_proc():
+    opt = check_button_var.get()
+    if opt == 1:
+        global_hash_entry.grid(row = 0, column = 2)
+        global_hash_button.grid(row = 0, column = 3, padx = 7)
+    elif opt == 0:
+        global_hash_entry.grid_remove() 
+        global_hash_button.grid_remove()
+    pass
+
+def selectfile(opt):
+    file = askopenfilename()
+    global_hash_file.set(file)
 
 root = Tk()
 root.title("重复文件管理")
@@ -319,11 +350,28 @@ for i in range(6):
 
 repeat_radio_var = IntVar()
 validate_radio_var = IntVar()
+check_button_var = IntVar()
+global_hash_file = StringVar()
+
+frame_cur_row = 0
+###
+### HASH选择FRAME
+###
+hashFrame = Frame(root, height = 200, width = 796)
+hashFrame.grid(row = frame_cur_row, columnspan = 6, sticky = W)
+
+Label(hashFrame, text = "使用校验文件作为重复检查基准").grid(row = 0, column = 0, sticky = W, padx = 7, pady = 2)
+Checkbutton(hashFrame, variable = check_button_var, command = check_button_proc).grid(row = 0, column = 1, sticky = W, padx = 7, pady = 2)
+global_hash_entry = Entry(hashFrame, textvariable = global_hash_file, width = 40)
+global_hash_button = Button(hashFrame, text = "选择", command = lambda : selectfile(1), width = 6, borderwidth = 0, fg = "blue")
+
 ###
 ### 目录选择FRAME
 ### 
+
+frame_cur_row = frame_cur_row + 1
 topFrame = Frame(root, height = 200, width = 796)
-topFrame.grid(row = 0, columnspan = 6, sticky = W)
+topFrame.grid(row = frame_cur_row, columnspan = 6, sticky = W)
 
 ### 文字说明
 currow = 0
@@ -358,8 +406,9 @@ Button(topFrame, text = "选择", command = lambda : selectPath(3), width = 6, b
 ###
 ### 操作方式FRAME
 ### 
+frame_cur_row = frame_cur_row + 1
 middleFrame = Frame(root, height = 200, width = 796)
-middleFrame.grid(row = 1, columnspan = 6, sticky = W)
+middleFrame.grid(row = frame_cur_row, columnspan = 6, sticky = W)
 
 currow = 0
 Label(middleFrame, text = "重复文件的操作方式").grid(row = currow, column = 0, padx = 7, sticky = W)
@@ -392,9 +441,9 @@ btnRun.grid(row = currow, column = 5, padx = 10, sticky = W)
 ###
 ### 显示当前处理的文件的FRAME
 ### 
-
+frame_cur_row = frame_cur_row + 1
 buttomFrame = Frame(root, height = 200, width = 796)
-buttomFrame.grid(row = 2, columnspan = 6, sticky = W)
+buttomFrame.grid(row = frame_cur_row, columnspan = 6, sticky = W)
 global_current_label = Label(buttomFrame)
 global_current_label.grid(row = 0, column = 0, columnspan = 6, sticky = W, padx = 7)
 
@@ -402,8 +451,9 @@ global_current_label.grid(row = 0, column = 0, columnspan = 6, sticky = W, padx 
 ###
 ### text
 ### 
+frame_cur_row = frame_cur_row + 1
 textFrame = Frame(root, height = 200, width = 796)
-textFrame.grid(row = 3, columnspan = 6, sticky = W)
+textFrame.grid(row = frame_cur_row, columnspan = 6, sticky = W)
 
 global_text = Text(textFrame, width = 110, height = 37)
 global_text.grid(row = 0, column = 0, columnspan = 6, ipadx = 10, ipady = 10)
